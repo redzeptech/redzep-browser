@@ -1,3 +1,4 @@
+from PyQt6.QtWebEngineCore import QWebEngineSettings
 import sys
 import json
 import os
@@ -20,6 +21,7 @@ class BrowserTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.view)
         self.setLayout(layout)
+        self.secure_mode = False
 
 
 class TabbedBrowser(QMainWindow):
@@ -30,6 +32,22 @@ class TabbedBrowser(QMainWindow):
 
         self.bookmarks_file = "bookmarks.json"
         self.bookmarks = self.load_bookmarks()
+    def toggle_secure_mode(self):
+        self.secure_mode = not self.secure_mode
+        state = not self.secure_mode  # JS açık mı kapalı mı
+
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if isinstance(tab, BrowserTab):
+                tab.view.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.JavascriptEnabled, state
+                )
+
+        QMessageBox.information(
+            self,
+            "Secure Mode",
+            "JavaScript " + ("KAPATILDI" if self.secure_mode else "AÇILDI")
+        )
 
         # Tabs
         self.tabs = QTabWidget()
@@ -77,6 +95,10 @@ class TabbedBrowser(QMainWindow):
         self.urlbar = QLineEdit()
         self.urlbar.returnPressed.connect(self.navigate_to_url)
         tb.addWidget(self.urlbar)
+        secure_action = QAction("🛡", self)
+        secure_action.setStatusTip("Güvenli Mod (JS Aç/Kapat)")
+        secure_action.triggered.connect(self.toggle_secure_mode)
+        tb.addAction(secure_action)
 
         self.add_tab("https://www.example.com", switch=True)
 
