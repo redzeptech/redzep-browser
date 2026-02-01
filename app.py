@@ -303,8 +303,21 @@ class TabbedBrowser(QMainWindow):
             self.urlbar.setCursorPosition(0)
       
         # Phishing kontrolü
+                # HTTPS kontrolü
+        if self.is_insecure_http(current_url):
+            self.statusBar().showMessage(
+                "⚠️ This site is not using HTTPS (connection not secure)", 4000
+            )
+
         current_url = qurl.toString()
         if self.is_suspicious_domain(current_url):
+                def is_insecure_http(self, url: str) -> bool:
+        try:
+            parsed = urlparse(url)
+            return parsed.scheme == "http"
+        except Exception:
+            return False
+
             self.statusBar().showMessage(
                 "⚠️ Warning: Suspicious domain detected!", 4000
             )
