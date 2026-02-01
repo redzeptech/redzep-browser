@@ -1,3 +1,9 @@
+![CI](https://github.com/redzeptech/redzep-browser/actions/workflows/ci.yml/badge.svg)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/redzeptech/redzep-browser)
+![License](https://img.shields.io/github/license/redzeptech/redzep-browser)
+
+# Redzep Browser
+
 # Redzep Browser
 
 PyQt6 + QtWebEngine ile geliştirilmiş sekmeli mini masaüstü web tarayıcı.
