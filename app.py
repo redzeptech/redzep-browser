@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 
-
 HOME_URL = "https://www.example.com"
 
 
@@ -41,7 +40,7 @@ class TabbedBrowser(QMainWindow):
         # State
         self.bookmarks_file = "bookmarks.json"
         self.bookmarks = self.load_bookmarks()
-        self.secure_mode = False
+        self.secure_mode = False  # True => JS OFF
 
         # Tabs
         self.tabs = QTabWidget()
@@ -90,27 +89,6 @@ class TabbedBrowser(QMainWindow):
         bookmark_action = QAction("★", self)
         bookmark_action.setStatusTip("Yer imlerine ekle")
         bookmark_action.triggered.connect(self.add_bookmark)
-            def delete_bookmark(self, index: int):
-        if index < 0 or index >= len(self.bookmarks):
-            return
-        self.bookmarks.pop(index)
-        self.save_bookmarks()
-        self.refresh_bookmark_menu()
-        self.statusBar().showMessage("Yer imi silindi", 2000)
-
-    def clear_bookmarks(self):
-        self.bookmarks = []
-        self.save_bookmarks()
-        self.refresh_bookmark_menu()
-        self.statusBar().showMessage("Tüm yer imleri temizlendi", 2500)
-
-
-        def clear_bookmarks(self):
-        self.bookmarks = []
-        self.save_bookmarks()
-        self.refresh_bookmark_menu()
-        self.statusBar().showMessage("Tüm yer imleri temizlendi", 2500)
-
         tb.addAction(bookmark_action)
 
         secure_action = QAction("🛡", self)
@@ -144,7 +122,17 @@ class TabbedBrowser(QMainWindow):
                 with open(self.bookmarks_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 if isinstance(data, list):
-                    return data
+                    # Minimal validation
+                    cleaned = []
+                    for bm in data:
+                        if isinstance(bm, dict) and "url" in bm:
+                            cleaned.append(
+                                {
+                                    "title": str(bm.get("title", "Yer imi")),
+                                    "url": str(bm.get("url", HOME_URL)),
+                                }
+                            )
+                    return cleaned
             except Exception:
                 pass
         return []
@@ -157,10 +145,11 @@ class TabbedBrowser(QMainWindow):
         v = self.current_view()
         if not v:
             return
+
         title = v.title() or "Yer imi"
         url = v.url().toString()
 
-        # Basit duplicate önleme
+        # Duplicate prevent (by URL)
         if any(bm.get("url") == url for bm in self.bookmarks):
             self.statusBar().showMessage("Zaten kayıtlı: " + url, 2500)
             return
@@ -170,7 +159,20 @@ class TabbedBrowser(QMainWindow):
         self.refresh_bookmark_menu()
         self.statusBar().showMessage("Yer imi eklendi", 2000)
 
-        def refresh_bookmark_menu(self):
+    def delete_bookmark(self, index: int):
+        if 0 <= index < len(self.bookmarks):
+            self.bookmarks.pop(index)
+            self.save_bookmarks()
+            self.refresh_bookmark_menu()
+            self.statusBar().showMessage("Yer imi silindi", 2000)
+
+    def clear_bookmarks(self):
+        self.bookmarks = []
+        self.save_bookmarks()
+        self.refresh_bookmark_menu()
+        self.statusBar().showMessage("Tüm yer imleri temizlendi", 2500)
+
+    def refresh_bookmark_menu(self):
         self.bookmark_menu.clear()
 
         if not self.bookmarks:
@@ -179,7 +181,7 @@ class TabbedBrowser(QMainWindow):
             self.bookmark_menu.addAction(empty)
             return
 
-        # Açma listesi
+        # Open bookmarks
         for bm in self.bookmarks:
             title = bm.get("title", "Yer imi")
             url = bm.get("url", HOME_URL)
@@ -187,7 +189,7 @@ class TabbedBrowser(QMainWindow):
             action.triggered.connect(lambda checked=False, u=url: self.add_tab(u, switch=True))
             self.bookmark_menu.addAction(action)
 
-        # Yönetim bölümü
+        # Management
         self.bookmark_menu.addSeparator()
 
         clear_action = QAction("🗑 Tüm yer imlerini temizle", self)
@@ -201,11 +203,10 @@ class TabbedBrowser(QMainWindow):
             del_action.triggered.connect(lambda checked=False, i=idx: self.delete_bookmark(i))
             delete_menu.addAction(del_action)
 
-
     # ---------------- SECURE MODE ----------------
 
     def apply_js_setting_all_tabs(self):
-        js_enabled = not self.secure_mode  # secure_mode True => JS OFF
+        js_enabled = not self.secure_mode
         for i in range(self.tabs.count()):
             tab = self.tabs.widget(i)
             if isinstance(tab, BrowserTab):
@@ -234,7 +235,7 @@ class TabbedBrowser(QMainWindow):
     def add_tab(self, url: str, switch: bool = False):
         tab = BrowserTab(url)
 
-        # Secure mode uygulanmış olsun (yeni tab)
+        # Ensure secure mode applies to new tab too
         tab.view.settings().setAttribute(
             QWebEngineSettings.WebAttribute.JavascriptEnabled,
             not self.secure_mode,
@@ -264,6 +265,7 @@ class TabbedBrowser(QMainWindow):
         v = self.current_view()
         if v:
             self.urlbar.setText(v.url().toString())
+            self.urlbar.setCursorPosition(0)
 
     def on_url_changed(self, qurl: QUrl, tab: BrowserTab):
         if tab == self.tabs.currentWidget():
@@ -312,5 +314,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
