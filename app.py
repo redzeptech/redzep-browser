@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QWidget,
     QVBoxLayout,
+    QMessageBox,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
@@ -136,7 +137,6 @@ class TabbedBrowser(QMainWindow):
                             )
                     return cleaned
             except Exception:
-                # Bozuk json vb. durumlarda sessizce boş listeye dön
                 return []
         return []
 
@@ -152,7 +152,6 @@ class TabbedBrowser(QMainWindow):
         title = v.title() or "Yer imi"
         url = v.url().toString()
 
-        # Duplicate prevent (by URL)
         if any(bm.get("url") == url for bm in self.bookmarks):
             self.statusBar().showMessage("Zaten kayıtlı: " + url, 2500)
             return
@@ -184,7 +183,6 @@ class TabbedBrowser(QMainWindow):
             self.bookmark_menu.addAction(empty)
             return
 
-        # Open bookmarks
         for bm in self.bookmarks:
             title = bm.get("title", "Yer imi")
             url = bm.get("url", HOME_URL)
@@ -192,7 +190,6 @@ class TabbedBrowser(QMainWindow):
             action.triggered.connect(lambda checked=False, u=url: self.add_tab(u, switch=True))
             self.bookmark_menu.addAction(action)
 
-        # Management
         self.bookmark_menu.addSeparator()
 
         clear_action = QAction("🗑 Tüm yer imlerini temizle", self)
@@ -240,35 +237,46 @@ class TabbedBrowser(QMainWindow):
         try:
             parsed = urlparse(url)
             host = (parsed.netloc or "").lower()
-
-            # netloc boşsa (garip url), şüpheli saymayalım
             if not host:
                 return False
 
-            # port temizle (example.com:8080)
             host_no_port = host.split(":")[0]
 
-            # IP adresi mi?
             if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_no_port):
                 return True
-
-            # Çok uzun domain
             if len(host_no_port) > 40:
                 return True
-
-            # Çok fazla tire
             if host_no_port.count("-") >= 3:
                 return True
 
-            # Şüpheli kelimeler
             suspicious_words = ["secure", "verify", "update", "account", "login"]
-            if any(word in host_no_port for word in suspicious_words):
-                return True
+            return any(word in host_no_port for word in suspicious_words)
 
         except Exception:
-            pass
+            return False
 
-        return False
+    def show_security_warnings(self, url: str):
+        insecure = self.is_insecure_http(url)
+        suspicious = self.is_suspicious_domain(url)
+
+        # Status bar (uzun tut: gözden kaçmasın)
+        if insecure:
+            self.statusBar().showMessage(
+                "⚠️ HTTPS yok: bağlantı güvenli değil (HTTP)", 8000
+            )
+
+        if suspicious:
+            self.statusBar().showMessage(
+                "⚠️ Şüpheli domain tespit edildi (phishing riski)", 8000
+            )
+
+        # Popup (isteğe bağlı ama garanti görünür)
+        if insecure or suspicious:
+            QMessageBox.warning(
+                self,
+                "Security Warning",
+                f"URL: {url}\n\nHTTP (insecure): {insecure}\nSuspicious domain: {suspicious}",
+            )
 
     # ---------------- TABS ----------------
 
@@ -281,7 +289,6 @@ class TabbedBrowser(QMainWindow):
     def add_tab(self, url: str, switch: bool = False):
         tab = BrowserTab(url)
 
-        # Ensure secure mode applies to new tab too
         tab.view.settings().setAttribute(
             QWebEngineSettings.WebAttribute.JavascriptEnabled,
             not self.secure_mode,
@@ -314,54 +321,64 @@ class TabbedBrowser(QMainWindow):
             self.urlbar.setCursorPosition(0)
 
     def on_url_changed(self, qurl: QUrl, tab: BrowserTab):
-        # URL bar update (only active tab)
         if tab == self.tabs.currentWidget():
             self.urlbar.setText(qurl.toString())
             self.urlbar.setCursorPosition(0)
 
+        # Sayfa yönlendirse bile kontrol (popup istemezsen burada kapatırız)
         current_url = qurl.toString()
-
-        # Security checks (status messages)
-        if self.is_insecure_http(current_url):
-            self.statusBar().showMessage(
-                "⚠️ This site is not using HTTPS (connection not secure)", 4000
-            )
-
-        if self.is_suspicious_domain(current_url):
-            self.statusBar().showMessage(
-                "⚠️ Warning: Suspicious domain detected!", 4000
-            )
+        # Sadece http/https için kontrol et, chrome-error gibi iç sayfaları pas geç
+        if current_url.startswith("http://") or current_url.startswith("https://"):
+            # Popup spam olmasın diye sadece status bar verelim
+            if self.is_insecure_http(current_url):
+                self.statusBar().showMessage("⚠️ HTTPS yok: bağlantı güvenli değil (HTTP)", 8000)
+            if self.is_suspicious_domain(current_url):
+                self.statusBar().showMessage("⚠️ Şüpheli domain tespit edildi (phishing riski)", 8000)
 
     # ---------------- NAVIGATION ----------------
 
     def navigate_to_url(self):
-    text = self.urlbar.text().strip()
-    if not text:
-        return
+        text = self.urlbar.text().strip()
+        if not text:
+            return
 
-    # DEBUG: Bu satır terminalde görünmeli
-    print("NAVIGATE_TO_URL:", text)
+        if "://" not in text:
+            text = "https://" + text
 
-    if "://" not in text:
-        text = "https://" + text
+        # Uyarıları yüklemeden önce göster (redirect olsa da garanti)
+        self.show_security_warnings(text)
 
-    insecure = self.is_insecure_http(text)
-    suspicious = self.is_suspicious_domain(text)
+        v = self.current_view()
+        if v:
+            v.setUrl(QUrl(text))
 
-    # DEBUG: Bu da terminalde görünmeli
-    print("CHECKS -> insecure:", insecure, "suspicious:", suspicious)
+    def go_home(self):
+        v = self.current_view()
+        if v:
+            v.setUrl(QUrl(HOME_URL))
 
-    # Popup: kaçırma ihtimali sıfır
-    if insecure or suspicious:
-        QMessageBox.warning(
-            self,
-            "Security Warning",
-            f"URL: {text}\n\nHTTPS insecure: {insecure}\nSuspicious domain: {suspicious}",
-        )
+    def go_back(self):
+        v = self.current_view()
+        if v:
+            v.back()
 
-    v = self.current_view()
-    if v:
-        v.setUrl(QUrl(text))
+    def go_forward(self):
+        v = self.current_view()
+        if v:
+            v.forward()
+
+    def reload_page(self):
+        v = self.current_view()
+        if v:
+            v.reload()
+
+
+def main():
+    app = QApplication(sys.argv)
+    win = TabbedBrowser()
+    win.show()
+    sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
