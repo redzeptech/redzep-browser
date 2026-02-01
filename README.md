@@ -1,34 +1,17 @@
-\# redzep-browser
+# Redzep Browser
 
+PyQt6 + QtWebEngine ile geliştirilmiş sekmeli mini masaüstü web tarayıcı.
 
+## Özellikler
+- Sekmeler (Ctrl+T yeni sekme, Ctrl+W sekme kapat)
+- Adres çubuğu + Geri/İleri/Yenile/Home
+- Yer imleri: ekle, menüden aç
+- Yer imi yönetimi: tek tek sil, tümünü temizle
+- 🛡 Secure Mode: JavaScript Aç/Kapat (status bar bildirimleri)
 
-PyQt6 + QtWebEngine ile yapılmış mini web tarayıcı.
-
-
-
-\## Özellikler
-
-\- Adres çubuğu
-
-\- Geri / İleri / Yenile
-
-\- Home (example.com)
-
-
-
-\## Kurulum (Windows)
-
+## Kurulum (Windows)
 ```powershell
-
 python -m venv .venv
-
-.\\.venv\\Scripts\\Activate.ps1
-
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
 python app.py
-
-
-
-
-
