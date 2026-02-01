@@ -101,6 +101,13 @@ class TabbedBrowser(QMainWindow):
         self.bookmarks.append({"title": title, "url": url})
         self.save_bookmarks()
         QMessageBox.information(self, "Bookmark", "Yer imi eklendi!")
+        self.refresh_bookmark_menu()
+    def refresh_bookmark_menu(self):
+        self.bookmark_menu.clear()
+        for bm in self.bookmarks:
+            action = QAction(bm["title"], self)
+            action.triggered.connect(lambda checked=False, url=bm["url"]: self.add_tab(url, switch=True))
+            self.bookmark_menu.addAction(action)
 
     # ---------------- TAB SYSTEM ----------------
 
@@ -121,6 +128,11 @@ class TabbedBrowser(QMainWindow):
     def close_tab(self, index):
         if self.tabs.count() <= 1:
             self.tabs.removeTab(index)
+                   # Menu bar
+        menubar = self.menuBar()
+        self.bookmark_menu = menubar.addMenu("Yer İmleri")
+        self.refresh_bookmark_menu()
+
             self.add_tab("https://www.example.com", switch=True)
             return
         self.tabs.removeTab(index)
