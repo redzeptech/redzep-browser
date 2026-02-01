@@ -1,9 +1,8 @@
-import re
-from urllib.parse import urlparse
-
 import sys
 import json
 import os
+import re
+from urllib.parse import urlparse
 
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QAction, QKeySequence
@@ -18,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings
+
 
 HOME_URL = "https://www.google.com"
 
@@ -125,7 +125,6 @@ class TabbedBrowser(QMainWindow):
                 with open(self.bookmarks_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 if isinstance(data, list):
-                    # Minimal validation
                     cleaned = []
                     for bm in data:
                         if isinstance(bm, dict) and "url" in bm:
@@ -137,7 +136,8 @@ class TabbedBrowser(QMainWindow):
                             )
                     return cleaned
             except Exception:
-                pass
+                # Bozuk json vb. durumlarda sessizce boş listeye dön
+                return []
         return []
 
     def save_bookmarks(self):
@@ -227,27 +227,42 @@ class TabbedBrowser(QMainWindow):
             3000,
         )
 
-    # ---------------- TABS ----------------
+    # ---------------- SECURITY CHECKS ----------------
+
+    def is_insecure_http(self, url: str) -> bool:
+        try:
+            parsed = urlparse(url)
+            return parsed.scheme.lower() == "http"
+        except Exception:
+            return False
+
     def is_suspicious_domain(self, url: str) -> bool:
         try:
             parsed = urlparse(url)
-            host = parsed.netloc.lower()
+            host = (parsed.netloc or "").lower()
+
+            # netloc boşsa (garip url), şüpheli saymayalım
+            if not host:
+                return False
+
+            # port temizle (example.com:8080)
+            host_no_port = host.split(":")[0]
 
             # IP adresi mi?
-            if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host):
+            if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_no_port):
                 return True
 
             # Çok uzun domain
-            if len(host) > 40:
+            if len(host_no_port) > 40:
                 return True
 
             # Çok fazla tire
-            if host.count("-") >= 3:
+            if host_no_port.count("-") >= 3:
                 return True
 
             # Şüpheli kelimeler
             suspicious_words = ["secure", "verify", "update", "account", "login"]
-            if any(word in host for word in suspicious_words):
+            if any(word in host_no_port for word in suspicious_words):
                 return True
 
         except Exception:
@@ -255,7 +270,8 @@ class TabbedBrowser(QMainWindow):
 
         return False
 
-    
+    # ---------------- TABS ----------------
+
     def current_view(self):
         w = self.tabs.currentWidget()
         if isinstance(w, BrowserTab):
@@ -298,31 +314,24 @@ class TabbedBrowser(QMainWindow):
             self.urlbar.setCursorPosition(0)
 
     def on_url_changed(self, qurl: QUrl, tab: BrowserTab):
+        # URL bar update (only active tab)
         if tab == self.tabs.currentWidget():
             self.urlbar.setText(qurl.toString())
             self.urlbar.setCursorPosition(0)
-      
-        # Phishing kontrolü
-                # HTTPS kontrolü
+
+        current_url = qurl.toString()
+
+        # Security checks (status messages)
         if self.is_insecure_http(current_url):
             self.statusBar().showMessage(
                 "⚠️ This site is not using HTTPS (connection not secure)", 4000
             )
 
-        current_url = qurl.toString()
         if self.is_suspicious_domain(current_url):
-                def is_insecure_http(self, url: str) -> bool:
-        try:
-            parsed = urlparse(url)
-            return parsed.scheme == "http"
-        except Exception:
-            return False
-
             self.statusBar().showMessage(
                 "⚠️ Warning: Suspicious domain detected!", 4000
             )
 
-    
     # ---------------- NAVIGATION ----------------
 
     def navigate_to_url(self):
@@ -365,4 +374,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-Commit changes
