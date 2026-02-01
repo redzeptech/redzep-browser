@@ -1,3 +1,6 @@
+import re
+from urllib.parse import urlparse
+
 import sys
 import json
 import os
@@ -225,7 +228,34 @@ class TabbedBrowser(QMainWindow):
         )
 
     # ---------------- TABS ----------------
+    def is_suspicious_domain(self, url: str) -> bool:
+        try:
+            parsed = urlparse(url)
+            host = parsed.netloc.lower()
 
+            # IP adresi mi?
+            if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host):
+                return True
+
+            # Çok uzun domain
+            if len(host) > 40:
+                return True
+
+            # Çok fazla tire
+            if host.count("-") >= 3:
+                return True
+
+            # Şüpheli kelimeler
+            suspicious_words = ["secure", "verify", "update", "account", "login"]
+            if any(word in host for word in suspicious_words):
+                return True
+
+        except Exception:
+            pass
+
+        return False
+
+    
     def current_view(self):
         w = self.tabs.currentWidget()
         if isinstance(w, BrowserTab):
@@ -271,7 +301,15 @@ class TabbedBrowser(QMainWindow):
         if tab == self.tabs.currentWidget():
             self.urlbar.setText(qurl.toString())
             self.urlbar.setCursorPosition(0)
+      
+        # Phishing kontrolü
+        current_url = qurl.toString()
+        if self.is_suspicious_domain(current_url):
+            self.statusBar().showMessage(
+                "⚠️ Warning: Suspicious domain detected!", 4000
+            )
 
+    
     # ---------------- NAVIGATION ----------------
 
     def navigate_to_url(self):
