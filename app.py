@@ -352,9 +352,11 @@ class TabbedBrowser(QMainWindow):
     insecure = self.is_insecure_http(url)
     suspicious = self.is_suspicious_domain(url)
 
+    # HTTP -> sadece status bar
     if insecure:
         self.statusBar().showMessage("⚠️ HTTPS yok: bağlantı güvenli değil (HTTP)", 8000)
 
+    # Phishing -> status + popup
     if suspicious:
         self.statusBar().showMessage("⚠️ Şüpheli domain tespit edildi (phishing riski)", 8000)
         QMessageBox.warning(
@@ -362,6 +364,7 @@ class TabbedBrowser(QMainWindow):
             "Security Warning",
             f"Şüpheli domain!\n\nURL: {url}",
         )
+
 
 
 if __name__ == "__main__":
