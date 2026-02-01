@@ -335,42 +335,33 @@ class TabbedBrowser(QMainWindow):
     # ---------------- NAVIGATION ----------------
 
     def navigate_to_url(self):
-        text = self.urlbar.text().strip()
-        if not text:
-            return
-        if "://" not in text:
-            text = "https://" + text
-        v = self.current_view()
-        if v:
-            v.setUrl(QUrl(text))
+    text = self.urlbar.text().strip()
+    if not text:
+        return
 
-    def go_home(self):
-        v = self.current_view()
-        if v:
-            v.setUrl(QUrl(HOME_URL))
+    # DEBUG: Bu satır terminalde görünmeli
+    print("NAVIGATE_TO_URL:", text)
 
-    def go_back(self):
-        v = self.current_view()
-        if v:
-            v.back()
+    if "://" not in text:
+        text = "https://" + text
 
-    def go_forward(self):
-        v = self.current_view()
-        if v:
-            v.forward()
+    insecure = self.is_insecure_http(text)
+    suspicious = self.is_suspicious_domain(text)
 
-    def reload_page(self):
-        v = self.current_view()
-        if v:
-            v.reload()
+    # DEBUG: Bu da terminalde görünmeli
+    print("CHECKS -> insecure:", insecure, "suspicious:", suspicious)
 
+    # Popup: kaçırma ihtimali sıfır
+    if insecure or suspicious:
+        QMessageBox.warning(
+            self,
+            "Security Warning",
+            f"URL: {text}\n\nHTTPS insecure: {insecure}\nSuspicious domain: {suspicious}",
+        )
 
-def main():
-    app = QApplication(sys.argv)
-    win = TabbedBrowser()
-    win.show()
-    sys.exit(app.exec())
-
+    v = self.current_view()
+    if v:
+        v.setUrl(QUrl(text))
 
 if __name__ == "__main__":
     main()
