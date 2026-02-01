@@ -1,3 +1,5 @@
+👉 Project roadmap: [ROADMAP.md](ROADMAP.md)
+
 ![CI](https://github.com/redzeptech/redzep-browser/actions/workflows/ci.yml/badge.svg)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/redzeptech/redzep-browser)
 ![License](https://img.shields.io/github/license/redzeptech/redzep-browser)
