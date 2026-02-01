@@ -249,8 +249,8 @@ class TabbedBrowser(QMainWindow):
             if host_no_port.count("-") >= 3:
                 return True
 
-            suspicious_words = ["secure", "verify", "update", "account", "login"]
-            return any(word in host_no_port for word in suspicious_words)
+           suspicious_words = ["password", "wallet", "bank", "paypal", "verify", "recovery", "signin", "update"]
+
 
         except Exception:
             return False
@@ -348,36 +348,20 @@ class TabbedBrowser(QMainWindow):
         # Uyarıları yüklemeden önce göster (redirect olsa da garanti)
         self.show_security_warnings(text)
 
-        v = self.current_view()
-        if v:
-            v.setUrl(QUrl(text))
+        def show_security_warnings(self, url: str):
+    insecure = self.is_insecure_http(url)
+    suspicious = self.is_suspicious_domain(url)
 
-    def go_home(self):
-        v = self.current_view()
-        if v:
-            v.setUrl(QUrl(HOME_URL))
+    if insecure:
+        self.statusBar().showMessage("⚠️ HTTPS yok: bağlantı güvenli değil (HTTP)", 8000)
 
-    def go_back(self):
-        v = self.current_view()
-        if v:
-            v.back()
-
-    def go_forward(self):
-        v = self.current_view()
-        if v:
-            v.forward()
-
-    def reload_page(self):
-        v = self.current_view()
-        if v:
-            v.reload()
-
-
-def main():
-    app = QApplication(sys.argv)
-    win = TabbedBrowser()
-    win.show()
-    sys.exit(app.exec())
+    if suspicious:
+        self.statusBar().showMessage("⚠️ Şüpheli domain tespit edildi (phishing riski)", 8000)
+        QMessageBox.warning(
+            self,
+            "Security Warning",
+            f"Şüpheli domain!\n\nURL: {url}",
+        )
 
 
 if __name__ == "__main__":
