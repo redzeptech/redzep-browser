@@ -7,7 +7,9 @@ from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QToolBar, QLineEdit, QMessageBox,
     QTabWidget, QWidget, QVBoxLayout
-)
+)        if hasattr(self, "secure_action"):
+            self.secure_action.setChecked(self.secure_mode)
+
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 
@@ -22,6 +24,9 @@ class BrowserTab(QWidget):
         layout.addWidget(self.view)
         self.setLayout(layout)
         self.secure_mode = False
+        secure_action.setCheckable(True)
+        self.secure_action = secure_action
+
 
 
 class TabbedBrowser(QMainWindow):
