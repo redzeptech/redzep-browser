@@ -4,7 +4,6 @@
 
 # Redzep Browser
 
-# Redzep Browser
 
 PyQt6 + QtWebEngine ile geliştirilmiş sekmeli mini masaüstü web tarayıcı.
 
