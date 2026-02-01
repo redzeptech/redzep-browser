@@ -1,20 +1,27 @@
-from PyQt6.QtWebEngineCore import QWebEngineSettings
 import sys
 import json
 import os
+
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QToolBar, QLineEdit, QMessageBox,
-    QTabWidget, QWidget, QVBoxLayout
-)        if hasattr(self, "secure_action"):
-            self.secure_action.setChecked(self.secure_mode)
-
+    QApplication,
+    QMainWindow,
+    QToolBar,
+    QLineEdit,
+    QTabWidget,
+    QWidget,
+    QVBoxLayout,
+)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEngineSettings
+
+
+HOME_URL = "https://www.example.com"
 
 
 class BrowserTab(QWidget):
-    def __init__(self, url: str = "https://www.example.com"):
+    def __init__(self, url: str = HOME_URL):
         super().__init__()
         self.view = QWebEngineView()
         self.view.setUrl(QUrl(url))
@@ -23,10 +30,6 @@ class BrowserTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.view)
         self.setLayout(layout)
-        self.secure_mode = False
-        secure_action.setCheckable(True)
-        self.secure_action = secure_action
-
 
 
 class TabbedBrowser(QMainWindow):
@@ -35,24 +38,10 @@ class TabbedBrowser(QMainWindow):
         self.setWindowTitle("Redzep Browser")
         self.resize(1200, 800)
 
+        # State
         self.bookmarks_file = "bookmarks.json"
         self.bookmarks = self.load_bookmarks()
-    def toggle_secure_mode(self):
-        self.secure_mode = not self.secure_mode
-        state = not self.secure_mode  # JS açık mı kapalı mı
-
-        for i in range(self.tabs.count()):
-            tab = self.tabs.widget(i)
-            if isinstance(tab, BrowserTab):
-                tab.view.settings().setAttribute(
-                    QWebEngineSettings.WebAttribute.JavascriptEnabled, state
-                )
-
-        QMessageBox.information(
-            self,
-            "Secure Mode",
-            "JavaScript " + ("KAPATILDI" if self.secure_mode else "AÇILDI")
-        )
+        self.secure_mode = False
 
         # Tabs
         self.tabs = QTabWidget()
@@ -67,27 +56,33 @@ class TabbedBrowser(QMainWindow):
         self.addToolBar(tb)
 
         back_action = QAction("←", self)
+        back_action.setStatusTip("Geri")
         back_action.triggered.connect(self.go_back)
         tb.addAction(back_action)
 
         forward_action = QAction("→", self)
+        forward_action.setStatusTip("İleri")
         forward_action.triggered.connect(self.go_forward)
         tb.addAction(forward_action)
 
         reload_action = QAction("⟳", self)
+        reload_action.setStatusTip("Yenile")
         reload_action.triggered.connect(self.reload_page)
         tb.addAction(reload_action)
 
         home_action = QAction("🏠", self)
+        home_action.setStatusTip("Ana sayfa")
         home_action.triggered.connect(self.go_home)
         tb.addAction(home_action)
 
         newtab_action = QAction("＋", self)
+        newtab_action.setStatusTip("Yeni sekme")
         newtab_action.setShortcut(QKeySequence("Ctrl+T"))
-        newtab_action.triggered.connect(lambda: self.add_tab("https://www.example.com", switch=True))
+        newtab_action.triggered.connect(lambda: self.add_tab(HOME_URL, switch=True))
         tb.addAction(newtab_action)
 
         closetab_action = QAction("✕", self)
+        closetab_action.setStatusTip("Sekmeyi kapat")
         closetab_action.setShortcut(QKeySequence("Ctrl+W"))
         closetab_action.triggered.connect(self.close_current_tab)
         tb.addAction(closetab_action)
@@ -97,46 +92,100 @@ class TabbedBrowser(QMainWindow):
         bookmark_action.triggered.connect(self.add_bookmark)
         tb.addAction(bookmark_action)
 
-        self.urlbar = QLineEdit()
-        self.urlbar.returnPressed.connect(self.navigate_to_url)
-        tb.addWidget(self.urlbar)
         secure_action = QAction("🛡", self)
-        secure_action.setStatusTip("Güvenli Mod (JS Aç/Kapat)")
+        secure_action.setStatusTip("Güvenli Mod (JavaScript Aç/Kapat)")
+        secure_action.setCheckable(True)
         secure_action.triggered.connect(self.toggle_secure_mode)
+        self.secure_action = secure_action
         tb.addAction(secure_action)
 
-        self.add_tab("https://www.example.com", switch=True)
+        self.urlbar = QLineEdit()
+        self.urlbar.setPlaceholderText("example.com veya https://example.com")
+        self.urlbar.returnPressed.connect(self.navigate_to_url)
+        tb.addWidget(self.urlbar)
 
-    # ---------------- BOOKMARK ----------------
+        # Menu bar (Bookmarks)
+        menubar = self.menuBar()
+        self.bookmark_menu = menubar.addMenu("Yer İmleri")
+        self.refresh_bookmark_menu()
+
+        # Status bar
+        self.statusBar().showMessage("Hazır", 1500)
+
+        # First tab
+        self.add_tab(HOME_URL, switch=True)
+
+    # ---------------- BOOKMARKS ----------------
 
     def load_bookmarks(self):
         if os.path.exists(self.bookmarks_file):
-            with open(self.bookmarks_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+            try:
+                with open(self.bookmarks_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    return data
+            except Exception:
+                pass
         return []
 
     def save_bookmarks(self):
         with open(self.bookmarks_file, "w", encoding="utf-8") as f:
-            json.dump(self.bookmarks, f, indent=2)
+            json.dump(self.bookmarks, f, indent=2, ensure_ascii=False)
 
     def add_bookmark(self):
         v = self.current_view()
         if not v:
             return
-        title = v.title()
+        title = v.title() or "Yer imi"
         url = v.url().toString()
+
+        # Basit duplicate önleme
+        if any(bm.get("url") == url for bm in self.bookmarks):
+            self.statusBar().showMessage("Zaten kayıtlı: " + url, 2500)
+            return
+
         self.bookmarks.append({"title": title, "url": url})
         self.save_bookmarks()
-        QMessageBox.information(self, "Bookmark", "Yer imi eklendi!")
         self.refresh_bookmark_menu()
+        self.statusBar().showMessage("Yer imi eklendi", 2000)
+
     def refresh_bookmark_menu(self):
         self.bookmark_menu.clear()
+        if not self.bookmarks:
+            empty = QAction("(Boş)", self)
+            empty.setEnabled(False)
+            self.bookmark_menu.addAction(empty)
+            return
+
         for bm in self.bookmarks:
-            action = QAction(bm["title"], self)
-            action.triggered.connect(lambda checked=False, url=bm["url"]: self.add_tab(url, switch=True))
+            title = bm.get("title", "Yer imi")
+            url = bm.get("url", HOME_URL)
+            action = QAction(title, self)
+            action.triggered.connect(lambda checked=False, u=url: self.add_tab(u, switch=True))
             self.bookmark_menu.addAction(action)
 
-    # ---------------- TAB SYSTEM ----------------
+    # ---------------- SECURE MODE ----------------
+
+    def apply_js_setting_all_tabs(self):
+        js_enabled = not self.secure_mode  # secure_mode True => JS OFF
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if isinstance(tab, BrowserTab):
+                tab.view.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.JavascriptEnabled,
+                    js_enabled,
+                )
+
+    def toggle_secure_mode(self):
+        self.secure_mode = not self.secure_mode
+        self.secure_action.setChecked(self.secure_mode)
+        self.apply_js_setting_all_tabs()
+        self.statusBar().showMessage(
+            "Secure Mode: " + ("ON (JavaScript OFF)" if self.secure_mode else "OFF (JavaScript ON)"),
+            3000,
+        )
+
+    # ---------------- TABS ----------------
 
     def current_view(self):
         w = self.tabs.currentWidget()
@@ -144,37 +193,44 @@ class TabbedBrowser(QMainWindow):
             return w.view
         return None
 
-    def add_tab(self, url, switch=False):
+    def add_tab(self, url: str, switch: bool = False):
         tab = BrowserTab(url)
-        i = self.tabs.addTab(tab, "Yeni Sekme")
-        tab.view.urlChanged.connect(lambda qurl, tab=tab: self.on_url_changed(qurl, tab))
-        tab.view.titleChanged.connect(lambda title, idx=i: self.tabs.setTabText(idx, title[:30] if title else "Sekme"))
-        if switch:
-            self.tabs.setCurrentIndex(i)
 
-    def close_tab(self, index):
+        # Secure mode uygulanmış olsun (yeni tab)
+        tab.view.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.JavascriptEnabled,
+            not self.secure_mode,
+        )
+
+        idx = self.tabs.addTab(tab, "Yeni Sekme")
+
+        tab.view.urlChanged.connect(lambda qurl, t=tab: self.on_url_changed(qurl, t))
+        tab.view.titleChanged.connect(
+            lambda title, i=idx: self.tabs.setTabText(i, (title[:30] if title else "Sekme"))
+        )
+
+        if switch:
+            self.tabs.setCurrentIndex(idx)
+
+    def close_tab(self, index: int):
         if self.tabs.count() <= 1:
             self.tabs.removeTab(index)
-                   # Menu bar
-        menubar = self.menuBar()
-        self.bookmark_menu = menubar.addMenu("Yer İmleri")
-        self.refresh_bookmark_menu()
-
-            self.add_tab("https://www.example.com", switch=True)
+            self.add_tab(HOME_URL, switch=True)
             return
         self.tabs.removeTab(index)
 
     def close_current_tab(self):
         self.close_tab(self.tabs.currentIndex())
 
-    def on_tab_changed(self, _index):
+    def on_tab_changed(self, _index: int):
         v = self.current_view()
         if v:
             self.urlbar.setText(v.url().toString())
 
-    def on_url_changed(self, qurl, tab):
+    def on_url_changed(self, qurl: QUrl, tab: BrowserTab):
         if tab == self.tabs.currentWidget():
             self.urlbar.setText(qurl.toString())
+            self.urlbar.setCursorPosition(0)
 
     # ---------------- NAVIGATION ----------------
 
@@ -191,7 +247,7 @@ class TabbedBrowser(QMainWindow):
     def go_home(self):
         v = self.current_view()
         if v:
-            v.setUrl(QUrl("https://www.example.com"))
+            v.setUrl(QUrl(HOME_URL))
 
     def go_back(self):
         v = self.current_view()
@@ -218,3 +274,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
