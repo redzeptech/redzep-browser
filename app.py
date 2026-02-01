@@ -90,6 +90,27 @@ class TabbedBrowser(QMainWindow):
         bookmark_action = QAction("★", self)
         bookmark_action.setStatusTip("Yer imlerine ekle")
         bookmark_action.triggered.connect(self.add_bookmark)
+            def delete_bookmark(self, index: int):
+        if index < 0 or index >= len(self.bookmarks):
+            return
+        self.bookmarks.pop(index)
+        self.save_bookmarks()
+        self.refresh_bookmark_menu()
+        self.statusBar().showMessage("Yer imi silindi", 2000)
+
+    def clear_bookmarks(self):
+        self.bookmarks = []
+        self.save_bookmarks()
+        self.refresh_bookmark_menu()
+        self.statusBar().showMessage("Tüm yer imleri temizlendi", 2500)
+
+
+        def clear_bookmarks(self):
+        self.bookmarks = []
+        self.save_bookmarks()
+        self.refresh_bookmark_menu()
+        self.statusBar().showMessage("Tüm yer imleri temizlendi", 2500)
+
         tb.addAction(bookmark_action)
 
         secure_action = QAction("🛡", self)
@@ -149,20 +170,37 @@ class TabbedBrowser(QMainWindow):
         self.refresh_bookmark_menu()
         self.statusBar().showMessage("Yer imi eklendi", 2000)
 
-    def refresh_bookmark_menu(self):
+        def refresh_bookmark_menu(self):
         self.bookmark_menu.clear()
+
         if not self.bookmarks:
             empty = QAction("(Boş)", self)
             empty.setEnabled(False)
             self.bookmark_menu.addAction(empty)
             return
 
+        # Açma listesi
         for bm in self.bookmarks:
             title = bm.get("title", "Yer imi")
             url = bm.get("url", HOME_URL)
             action = QAction(title, self)
             action.triggered.connect(lambda checked=False, u=url: self.add_tab(u, switch=True))
             self.bookmark_menu.addAction(action)
+
+        # Yönetim bölümü
+        self.bookmark_menu.addSeparator()
+
+        clear_action = QAction("🗑 Tüm yer imlerini temizle", self)
+        clear_action.triggered.connect(self.clear_bookmarks)
+        self.bookmark_menu.addAction(clear_action)
+
+        delete_menu = self.bookmark_menu.addMenu("🧹 Yer imi sil")
+        for idx, bm in enumerate(self.bookmarks):
+            title = bm.get("title", "Yer imi")
+            del_action = QAction(title, self)
+            del_action.triggered.connect(lambda checked=False, i=idx: self.delete_bookmark(i))
+            delete_menu.addAction(del_action)
+
 
     # ---------------- SECURE MODE ----------------
 
