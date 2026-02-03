@@ -1,3 +1,6 @@
+
+<img width="1000" height="399" alt="Redzep Browser" src="https://github.com/user-attachments/assets/37f00a77-106b-45a4-94a3-7938d8734ae1" />
+
 👉 Project roadmap: [ROADMAP.md](ROADMAP.md)
 
 ![CI](https://github.com/redzeptech/redzep-browser/actions/workflows/ci.yml/badge.svg)
